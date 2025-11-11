@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@utcp/code-mode)](https://www.npmjs.com/package/@utcp/code-mode)
 
-A powerful extension for UTCP that enables executing TypeScript code with direct access to all registered tools as native TypeScript functions.
+An extension for UTCP that enables executing TypeScript code with direct access to all registered tools as native TypeScript functions.
 
 ## Features
 
