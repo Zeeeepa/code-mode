@@ -1,3 +1,5 @@
+// OUTDATED, you can find the new version at https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/main/packages/code-mode
+
 /**
  * Tests for CodeModeUtcpClient
  * This validates the code mode functionality using direct-call tools

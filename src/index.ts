@@ -1,3 +1,4 @@
+// OUTDATED, you can find the new version at https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/main/packages/code-mode
 /**
  * Code Mode plugin for UTCP.
  * Enables TypeScript code execution with direct access to registered tools.

@@ -1,3 +1,4 @@
+// OUTDATED, you can find the new version at https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/main/packages/code-mode
 {
   "name": "@utcp/code-mode",
   "version": "1.0.4",
