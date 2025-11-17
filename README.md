@@ -131,7 +131,7 @@ npm install @utcp/code-mode
   "mcpServers": {
     "code-mode": {
       "command": "npx",
-      "args": ["@utcp/mcp-bridge"],
+      "args": ["@utcp/code-mode-mcp"],
       "env": {
         "UTCP_CONFIG_FILE": "/path/to/your/.utcp_config.json"
       }
@@ -140,7 +140,7 @@ npm install @utcp/code-mode
 }
 ```
 
-**That's it!** No installation, no Node.js knowledge required. The [UTCP-MCP Bridge](https://github.com/universal-tool-calling-protocol/utcp-mcp) automatically:
+**That's it!** No installation, no Node.js knowledge required. The [Code Mode MCP]([https://github.com/universal-tool-calling-protocol/utcp-mcp](https://github.com/universal-tool-calling-protocol/utcp-mcp/tree/main/code-mode-mcp)) automatically:
 - Downloads and runs the latest version via `npx`
 - Loads your tool configurations from JSON
 - Provides code execution capabilities to Claude Desktop
