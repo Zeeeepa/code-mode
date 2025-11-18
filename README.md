@@ -44,6 +44,10 @@ Independent [Python benchmark study](https://github.com/imran31415/codemode_pyth
 
 **Real-world results:** Independent benchmarks demonstrate significant cost savings, with **$9,536/year savings** possible at enterprise scale (1,000 scenarios/day).
 
+# Getting Started
+
+[![Tutorial for MCP use](https://img.youtube.com/vi/zsMjkPzmqhA/0.jpg)](https://www.youtube.com/watch?v=zsMjkPzmqhA)
+
 ## Get Started in 3 Lines
 
 ```typescript
