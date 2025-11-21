@@ -20,11 +20,7 @@
 
 LLMs excel at writing code but struggle with tool calls. Instead of exposing hundreds of tools directly, give them ONE tool that executes TypeScript code with access to your entire toolkit.
 
-**Research from [Apple](https://machinelearning.apple.com/research/codeact), [Cloudflare](https://blog.cloudflare.com/code-mode/) and [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp) proves:**
-- **60% faster execution** than traditional tool calling
-- **68% fewer tokens** consumed  
-- **88% fewer API round trips**
-- **98.7% reduction in context overhead** for complex workflows
+[Apple](https://machinelearning.apple.com/research/codeact), [Cloudflare](https://blog.cloudflare.com/code-mode/), and [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp) say that Code-Mode is a more efficient way to approach tool calling compared to the traditional dump function information and then extract a JSON for function calling.
 
 ## Benchmarks
 
@@ -41,21 +37,6 @@ Independent [Python benchmark study](https://github.com/imran31415/codemode_pyth
    **Batching Advantage** - Single code block replaces multiple API calls  
    **Cognitive Efficiency** - LLMs excel at code generation vs. tool orchestration  
    **Computational Efficiency** - No context re-processing between operations
-
-   ## Why Choose Code Mode UTCP?
-
-| Traditional Tool Calling | **Code Mode UTCP** | **Improvement** |
-|--------------------------|-------------------|----------------|
-| 15+ API round trips | **1 code execution** | **15x fewer requests** |
-| 50,000+ context tokens | **2,000 tokens** | **96% token reduction** |
-| 16 iterations (complex) | **1 iteration** | **88% faster** |
-| Higher token costs | **68% token reduction** | **$9,536/year savings** |
-| Manual error handling | **Automatic capture & logs** | **Zero-config observability** |
-| Tool-by-tool discovery | **Dynamic semantic search** | **Progressive disclosure** |
-| Vendor/protocol lock-in | **Universal compatibility** | **MCP, HTTP, File, CLI** |
-
-
-**Real-world results:** Independent benchmarks demonstrate significant cost savings, with **$9,536/year savings** possible at enterprise scale (1,000 scenarios/day).
 
 # Getting Started
 
