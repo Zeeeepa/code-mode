@@ -4,8 +4,8 @@
 <p align="center">
     <a href="https://github.com/universal-tool-calling-protocol">
         <img src="https://img.shields.io/github/followers/universal-tool-calling-protocol?label=Follow%20Org&logo=github" /></a>
-    <a href="https://pypi.org/project/utcp-code-mode/" title="PyPI Version">
-        <img src="https://img.shields.io/pypi/v/utcp-code-mode"/></a>
+    <a href="https://pypi.org/project/code-mode/" title="PyPI Version">
+        <img src="https://img.shields.io/pypi/v/code-mode"/></a>
     <a href="https://github.com/universal-tool-calling-protocol/code-mode/blob/main/LICENSE" alt="License">
         <img src="https://img.shields.io/github/license/universal-tool-calling-protocol/code-mode" /></a>
 </p>
@@ -109,7 +109,7 @@ Works with **any tool ecosystem:**
 ## Installation
 
 ```bash
-pip install utcp-code-mode
+pip install code-mode
 ```
 
 ## Direct Python Usage
