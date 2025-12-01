@@ -146,15 +146,6 @@ const result = await call_tool_chain(`
 - ✅ **Dynamic configuration** - Update tools without restarting
 - ✅ **Environment isolation** - Each project can have its own config
 - ✅ **Comprehensive tool management** - Register, search, call, and inspect tools
-- ✅ **Web interface available** - See [web_ui_utcp_mcp_bridge/](web_ui_utcp_mcp_bridge/)
-
-## 🐍 Python Version
-
-For Python users, see the standalone Python implementation in [`python_mcp_bridge/`](python_mcp_bridge/)
-
-## 🌐 Web Interface
-
-For advanced management with a web UI, check out [`web_ui_utcp_mcp_bridge/`](web_ui_utcp_mcp_bridge/)
 
 ---
 
