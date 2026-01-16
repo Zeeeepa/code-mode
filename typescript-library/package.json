@@ -1,6 +1,6 @@
 {
   "name": "@utcp/code-mode",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "Code execution mode for UTCP - enables executing TypeScript code chains with tool access using isolated-vm for security",
   "type": "module",
   "main": "dist/index.cjs",
@@ -32,7 +32,8 @@
     "prepublishOnly": "npm run build"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "exports": {
     ".": {
