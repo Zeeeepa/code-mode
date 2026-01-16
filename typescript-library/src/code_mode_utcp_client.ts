@@ -1,6 +1,5 @@
-// OUTDATED, you can find the new version at https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/main/packages/code-mode
 import { UtcpClient, Tool, JsonSchema, UtcpClientConfig } from '@utcp/sdk';
-import { createContext, runInContext } from 'vm';
+import ivm from 'isolated-vm';
 
 /**
  * CodeModeUtcpClient extends UtcpClient to provide TypeScript code execution capabilities.
@@ -33,13 +32,14 @@ You have access to a CodeModeUtcpClient that allows you to execute TypeScript co
 
 ### 3. Code Execution Guidelines
 **When writing code for \`callToolChain\`:**
-- Use \`await manual.tool({ param: value })\` syntax for all tool calls
-- Tools are async functions that return promises
+- Use \`manual.tool({ param: value })\` syntax for all tool calls (synchronous, no await needed)
+- Tools are synchronous functions - the main process handles async operations internally
 - You have access to standard JavaScript globals: \`console\`, \`JSON\`, \`Math\`, \`Date\`, etc.
 - All console output (\`console.log\`, \`console.error\`, etc.) is automatically captured and returned
 - Build properly structured input objects based on interface definitions
 - Handle errors appropriately with try/catch blocks
 - Chain tool calls by using results from previous calls
+- Use \`return\` to return the final result from your code
 
 ### 4. Best Practices
 - **Discover first, code second**: Always explore available tools before writing execution code
@@ -170,159 +170,205 @@ ${interfaces.join('\n\n')}`;
   /**
    * Executes TypeScript code with access to registered tools and captures console output.
    * The code can call tools directly as functions and has access to standard JavaScript globals.
+   * Uses isolated-vm for secure sandboxed execution.
    * 
    * @param code TypeScript code to execute  
    * @param timeout Optional timeout in milliseconds (default: 30000)
+   * @param memoryLimit Optional memory limit in MB (default: 128)
    * @returns Object containing both the execution result and captured console logs
    */
-  public async callToolChain(code: string, timeout: number = 30000): Promise<{result: any, logs: string[]}> {
+  public async callToolChain(
+    code: string, 
+    timeout: number = 30000,
+    memoryLimit: number = 128
+  ): Promise<{result: any, logs: string[]}> {
     const tools = await this.getTools();
-    
-    // Create the execution context with tool functions and log capture
     const logs: string[] = [];
-    const context = await this.createExecutionContext(tools, logs);
+    
+    // Create isolated VM
+    const isolate = new ivm.Isolate({ memoryLimit });
     
     try {
-      // Create VM context
-      const vmContext = createContext(context);
+      const context = await isolate.createContext();
+      const jail = context.global;
       
-      // Wrap the user code in an async function and execute it
+      // Set up the jail with a reference to itself
+      await jail.set('global', jail.derefInto());
+      
+      // Set up console logging bridges
+      await this.setupConsoleBridge(isolate, context, jail, logs);
+      
+      // Set up tool bridges
+      await this.setupToolBridges(isolate, context, jail, tools);
+      
+      // Set up utility functions and interfaces
+      await this.setupUtilities(isolate, context, jail, tools);
+      
+      // Compile and run the user code - code is SYNC since tools use applySyncPromise
+      // Wrap result in JSON.stringify to transfer objects out of isolate
       const wrappedCode = `
-        (async () => {
-          ${code}
+        (function() {
+          var __result = (function() {
+            ${code}
+          })();
+          return JSON.stringify({ __result: __result });
         })()
       `;
       
-      // Execute with timeout
-      const result = await this.runWithTimeout(wrappedCode, vmContext, timeout);
+      const script = await isolate.compileScript(wrappedCode);
+      const resultJson = await script.run(context, { timeout });
+      
+      // Parse the result from JSON
+      const result = typeof resultJson === 'string' 
+        ? JSON.parse(resultJson).__result
+        : resultJson;
+      
       return { result, logs };
     } catch (error) {
-      return { result: null, logs: [...logs, `[ERROR] Code execution failed: ${error instanceof Error ? error.message : String(error)}`] };
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { 
+        result: null, 
+        logs: [...logs, `[ERROR] Code execution failed: ${errorMessage}`] 
+      };
+    } finally {
+      isolate.dispose();
     }
   }
 
   /**
-   * Runs code in VM context with timeout support.
-   * 
-   * @param code Code to execute
-   * @param context VM context
-   * @param timeout Timeout in milliseconds
-   * @returns Execution result
+   * Sets up console bridge functions in the isolated context.
+   * Console calls in the isolate are forwarded to the main process for logging.
    */
-  private async runWithTimeout(code: string, context: any, timeout: number): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error(`Code execution timed out after ${timeout}ms`));
-      }, timeout);
+  private async setupConsoleBridge(
+    isolate: ivm.Isolate,
+    context: ivm.Context,
+    jail: ivm.Reference<Record<string | number | symbol, unknown>>,
+    logs: string[]
+  ): Promise<void> {
+    // Create log capture functions in main process
+    const createLogHandler = (prefix: string) => {
+      return new ivm.Reference((...args: any[]) => {
+        const message = args.join(' ');
+        logs.push(prefix ? `${prefix} ${message}` : message);
+      });
+    };
 
-      try {
-        const result = runInContext(code, context);
-        
-        // Handle both sync and async results
-        Promise.resolve(result)
-          .then(finalResult => {
-            clearTimeout(timeoutId);
-            resolve(finalResult);
-          })
-          .catch(error => {
-            clearTimeout(timeoutId);
-            reject(error);
-          });
-      } catch (error) {
-        clearTimeout(timeoutId);
-        reject(error);
-      }
-    });
+    // Set up console references in isolate
+    await jail.set('__logRef', createLogHandler(''));
+    await jail.set('__errorRef', createLogHandler('[ERROR]'));
+    await jail.set('__warnRef', createLogHandler('[WARN]'));
+    await jail.set('__infoRef', createLogHandler('[INFO]'));
+    
+    // Create console object in isolate that calls the references
+    const consoleSetupScript = await isolate.compileScript(`
+      const __stringify = (a) => typeof a === 'object' && a !== null ? JSON.stringify(a, null, 2) : String(a);
+      global.console = {
+        log: (...args) => __logRef.applySync(undefined, args.map(__stringify)),
+        error: (...args) => __errorRef.applySync(undefined, args.map(__stringify)),
+        warn: (...args) => __warnRef.applySync(undefined, args.map(__stringify)),
+        info: (...args) => __infoRef.applySync(undefined, args.map(__stringify))
+      };
+    `);
+    await consoleSetupScript.run(context);
   }
 
   /**
-   * Creates the execution context for running TypeScript code.
-   * This context includes tool functions and basic JavaScript globals.
-   * 
-   * @param tools Array of tools to make available
-   * @param logs Optional array to capture console.log output
-   * @returns Execution context object
+   * Sets up tool bridge functions in the isolated context.
+   * Tool calls in the isolate are forwarded to the main process for execution.
    */
-  private async createExecutionContext(tools: Tool[], logs?: string[]): Promise<Record<string, any>> {
-    // Create console object (either capturing logs or using standard console)
-    const consoleObj = logs ? {
-      log: (...args: any[]) => {
-        logs.push(args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' '));
-      },
-      error: (...args: any[]) => {
-        logs.push('[ERROR] ' + args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' '));
-      },
-      warn: (...args: any[]) => {
-        logs.push('[WARN] ' + args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' '));
-      },
-      info: (...args: any[]) => {
-        logs.push('[INFO] ' + args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' '));
+  private async setupToolBridges(
+    isolate: ivm.Isolate,
+    context: ivm.Context,
+    jail: ivm.Reference<Record<string | number | symbol, unknown>>,
+    tools: Tool[]
+  ): Promise<void> {
+    // Create a reference for the tool caller in main process
+    const toolCallerRef = new ivm.Reference(async (toolName: string, argsJson: string) => {
+      try {
+        const args = JSON.parse(argsJson);
+        const result = await this.callTool(toolName, args);
+        return JSON.stringify({ success: true, result });
+      } catch (error) {
+        return JSON.stringify({ 
+          success: false, 
+          error: error instanceof Error ? error.message : String(error) 
+        });
       }
-    } : console;
-
-    const context: Record<string, any> = {
-      // Add basic utilities
-      console: consoleObj,
-      JSON,
-      Promise,
-      Array,
-      Object,
-      String,
-      Number,
-      Boolean,
-      Math,
-      Date,
-      
-      // Add TypeScript interface definitions for reference
-      __interfaces: await this.getAllToolsTypeScriptInterfaces(),
-      __getToolInterface: (toolName: string) => {
-        const tool = tools.find(t => t.name === toolName);
-        return tool ? this.toolToTypeScriptInterface(tool) : null;
-      }
-    };
-
-    // Add tool functions to context organized by manual name
+    });
+    
+    await jail.set('__callToolRef', toolCallerRef);
+    
+    // Build tool namespace setup code
+    const toolSetupParts: string[] = [];
+    const namespaces = new Set<string>();
+    
     for (const tool of tools) {
       if (tool.name.includes('.')) {
         const [manualName, ...toolParts] = tool.name.split('.');
         const sanitizedManualName = this.sanitizeIdentifier(manualName);
-        const toolName = toolParts.map(part => this.sanitizeIdentifier(part)).join('_');
+        const toolFnName = toolParts.map(part => this.sanitizeIdentifier(part)).join('_');
         
-        // Create manual namespace object if it doesn't exist
-        if (!context[sanitizedManualName]) {
-          context[sanitizedManualName] = {};
+        if (!namespaces.has(sanitizedManualName)) {
+          namespaces.add(sanitizedManualName);
+          toolSetupParts.push(`global.${sanitizedManualName} = global.${sanitizedManualName} || {};`);
         }
         
-        // Add the tool function to the manual namespace
-        context[sanitizedManualName][toolName] = async (args: Record<string, any>) => {
-          try {
-            return await this.callTool(tool.name, args);
-          } catch (error) {
-            throw new Error(`Error calling tool '${tool.name}': ${error instanceof Error ? error.message : String(error)}`);
-          }
-        };
+        toolSetupParts.push(`
+          global.${sanitizedManualName}.${toolFnName} = function(args) {
+            // applySyncPromise blocks until async tool call completes in main process
+            var resultJson = __callToolRef.applySyncPromise(undefined, ['${tool.name}', JSON.stringify(args || {})]);
+            var parsed = JSON.parse(resultJson);
+            if (!parsed.success) throw new Error(parsed.error);
+            return parsed.result;
+          };
+        `);
       } else {
-        // If no dot, add directly to root context (no manual name)
         const sanitizedToolName = this.sanitizeIdentifier(tool.name);
-        context[sanitizedToolName] = async (args: Record<string, any>) => {
-          try {
-            return await this.callTool(tool.name, args);
-          } catch (error) {
-            throw new Error(`Error calling tool '${tool.name}': ${error instanceof Error ? error.message : String(error)}`);
-          }
-        };
+        toolSetupParts.push(`
+          global.${sanitizedToolName} = function(args) {
+            // applySyncPromise blocks until async tool call completes in main process
+            var resultJson = __callToolRef.applySyncPromise(undefined, ['${tool.name}', JSON.stringify(args || {})]);
+            var parsed = JSON.parse(resultJson);
+            if (!parsed.success) throw new Error(parsed.error);
+            return parsed.result;
+          };
+        `);
       }
     }
+    
+    // Execute tool setup in isolate
+    const toolSetupScript = await isolate.compileScript(toolSetupParts.join('\n'));
+    await toolSetupScript.run(context);
+  }
 
-    return context;
+  /**
+   * Sets up utility functions and interfaces in the isolated context.
+   */
+  private async setupUtilities(
+    isolate: ivm.Isolate,
+    context: ivm.Context,
+    jail: ivm.Reference<Record<string | number | symbol, unknown>>,
+    tools: Tool[]
+  ): Promise<void> {
+    // Add TypeScript interface definitions
+    const interfaces = await this.getAllToolsTypeScriptInterfaces();
+    await jail.set('__interfaces', interfaces);
+    
+    // Create interface lookup map
+    const interfaceMap: Record<string, string> = {};
+    for (const tool of tools) {
+      interfaceMap[tool.name] = this.toolToTypeScriptInterface(tool);
+    }
+    await jail.set('__interfaceMapJson', JSON.stringify(interfaceMap));
+    
+    // Execute utility setup in isolate
+    const utilSetupScript = await isolate.compileScript(`
+      global.__getToolInterface = (toolName) => {
+        const map = JSON.parse(__interfaceMapJson);
+        return map[toolName] || null;
+      };
+    `);
+    await utilSetupScript.run(context);
   }
 
   /**
