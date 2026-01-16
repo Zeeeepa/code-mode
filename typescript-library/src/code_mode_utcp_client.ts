@@ -144,8 +144,8 @@ ${outputInterfaceContent}
 ${interfaceContent}
 
 /**
- * ${tool.description}
- * Tags: ${tool.tags.join(', ')}
+ * ${this.escapeComment(tool.description)}
+ * Tags: ${this.escapeComment(tool.tags.join(', '))}
  * Access as: ${accessPattern}(args)
  */`;
 
@@ -316,7 +316,7 @@ ${interfaces.join('\n\n')}`;
         toolSetupParts.push(`
           global.${sanitizedManualName}.${toolFnName} = function(args) {
             // applySyncPromise blocks until async tool call completes in main process
-            var resultJson = __callToolRef.applySyncPromise(undefined, ['${tool.name}', JSON.stringify(args || {})]);
+            var resultJson = __callToolRef.applySyncPromise(undefined, [${JSON.stringify(tool.name)}, JSON.stringify(args || {})]);
             var parsed = JSON.parse(resultJson);
             if (!parsed.success) throw new Error(parsed.error);
             return parsed.result;
@@ -327,7 +327,7 @@ ${interfaces.join('\n\n')}`;
         toolSetupParts.push(`
           global.${sanitizedToolName} = function(args) {
             // applySyncPromise blocks until async tool call completes in main process
-            var resultJson = __callToolRef.applySyncPromise(undefined, ['${tool.name}', JSON.stringify(args || {})]);
+            var resultJson = __callToolRef.applySyncPromise(undefined, [${JSON.stringify(tool.name)}, JSON.stringify(args || {})]);
             var parsed = JSON.parse(resultJson);
             if (!parsed.success) throw new Error(parsed.error);
             return parsed.result;
@@ -394,7 +394,7 @@ ${interfaces.join('\n\n')}`;
       const tsType = this.jsonSchemaToTypeScriptType(propSchema as JsonSchema);
 
       if (description) {
-        lines.push(`    /** ${description} */`);
+        lines.push(`    /** ${this.escapeComment(description)} */`);
       }
       lines.push(`    ${propName}${optionalMarker}: ${tsType};`);
     }
@@ -454,7 +454,7 @@ ${interfaces.join('\n\n')}`;
       const isRequired = schema.required?.includes(key) ?? false;
       const optional = isRequired ? '' : '?';
       const propType = this.jsonSchemaToTypeScriptType(propSchema);
-      const description = propSchema.description ? `  /** ${propSchema.description} */\n` : '';
+      const description = propSchema.description ? `  /** ${this.escapeComment(propSchema.description)} */\n` : '';
       
       return `${description}  ${key}${optional}: ${propType};`;
     }).join('\n');
@@ -485,7 +485,7 @@ ${properties}
   private primitiveSchemaToTypeScript(schema: JsonSchema, typeName: string, baseType: string): string {
     if (schema.enum) {
       const enumValues = schema.enum.map(val => 
-        typeof val === 'string' ? `"${val}"` : String(val)
+        typeof val === 'string' ? JSON.stringify(val) : String(val)
       ).join(' | ');
       return `type ${typeName} = ${enumValues};`;
     }
@@ -503,7 +503,7 @@ ${properties}
 
     if (schema.enum) {
       return schema.enum.map(val => 
-        typeof val === 'string' ? `"${val}"` : String(val)
+        typeof val === 'string' ? JSON.stringify(val) : String(val)
       ).join(' | ');
     }
 
@@ -541,6 +541,14 @@ ${properties}
         }
         return 'any';
     }
+  }
+
+  /**
+   * Escapes a string for safe use in JSDoc comments.
+   * Prevents comment injection via star-slash sequences.
+   */
+  private escapeComment(text: string): string {
+    return text.replace(/\*\//g, '*\\/').replace(/\n/g, ' ');
   }
 
   /**
