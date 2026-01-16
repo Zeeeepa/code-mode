@@ -1,18 +1,15 @@
-// OUTDATED, you can find the new version at https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/main/packages/code-mode
 {
   "name": "@utcp/code-mode",
-  "version": "1.0.4",
-  "description": "Code execution mode for UTCP - enables executing TypeScript code chains with tool access",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
+  "version": "1.2.1",
+  "description": "Code execution mode for UTCP - enables executing TypeScript code chains with tool access using isolated-vm for security",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
   "license": "MPL-2.0",
   "author": "UTCP Contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/universal-tool-calling-protocol/typescript-utcp.git",
-    "directory": "packages/code-mode"
+    "url": "https://github.com/universal-tool-calling-protocol/code-mode.git",
+    "directory": "typescript-library"
   },
   "keywords": [
     "utcp",
@@ -20,14 +17,17 @@
     "typescript",
     "execution",
     "tool calling",
-    "chain"
+    "chain",
+    "isolated-vm",
+    "sandbox"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
-    "test": "bun test"
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
   "files": [
     "dist"
@@ -36,17 +36,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
       "default": "./dist/index.js"
     }
   },
   "dependencies": {
-    "@utcp/sdk": "^1.0.17"
+    "@utcp/sdk": "^1.1.0",
+    "isolated-vm": "^5.0.1"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "@types/node": "^20.0.0",
     "@utcp/direct-call": "^1.0.12",
-    "bun-types": "latest",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
     "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

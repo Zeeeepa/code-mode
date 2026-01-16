@@ -1,11 +1,8 @@
-// OUTDATED, you can find the new version at https://github.com/universal-tool-calling-protocol/typescript-utcp/tree/main/packages/code-mode
-
 /**
  * Tests for CodeModeUtcpClient
  * This validates the code mode functionality using direct-call tools
  */
 
-import { test, expect, describe, beforeAll, afterAll } from 'bun:test';
 import { CodeModeUtcpClient } from '../src/index';
 import { addFunctionToUtcpDirectCall } from '@utcp/direct-call';
 
@@ -268,7 +265,7 @@ describe('CodeModeUtcpClient', () => {
     const tools = await client.getTools();
     expect(tools.length).toBeGreaterThan(0);
     
-    const toolNames = tools.map(t => t.name.split('.').pop());
+    const toolNames = tools.map((t: any) => t.name.split('.').pop());
     expect(toolNames).toContain('add');
     expect(toolNames).toContain('greet');
     expect(toolNames).toContain('processData');
@@ -276,7 +273,7 @@ describe('CodeModeUtcpClient', () => {
 
   test('should convert tool to TypeScript interface', async () => {
     const tools = await client.getTools();
-    const addTool = tools.find(t => t.name.endsWith('.add'));
+    const addTool = tools.find((t: any) => t.name.endsWith('.add'));
     expect(addTool).toBeDefined();
 
     const tsInterface = client.toolToTypeScriptInterface(addTool!);
@@ -315,7 +312,7 @@ describe('CodeModeUtcpClient', () => {
     delete testResults.addCalled;
     
     const code = `
-      const result = await test_tools.add({ a: 15, b: 25 });
+      const result = test_tools.add({ a: 15, b: 25 });
       return result;
     `;
     
@@ -335,8 +332,8 @@ describe('CodeModeUtcpClient', () => {
     delete testResults.greetCalled;
     
     const code = `
-      const mathResult = await test_tools.add({ a: 10, b: 5 });
-      const greetResult = await test_tools.greet({ name: "Alice", formal: true });
+      const mathResult = test_tools.add({ a: 10, b: 5 });
+      const greetResult = test_tools.greet({ name: "Alice", formal: true });
       
       return {
         math: mathResult,
@@ -368,7 +365,7 @@ describe('CodeModeUtcpClient', () => {
         settings: { theme: "dark", notifications: true }
       };
       
-      const result = await test_tools.processData({ 
+      const result = test_tools.processData({ 
         data: complexData, 
         options: { validate: true, transform: "uppercase" } 
       });
@@ -393,7 +390,7 @@ describe('CodeModeUtcpClient', () => {
     
     const code = `
       const numbers = [1, 2, 3, 4, 5, 10];
-      const stats = await test_tools.sumArray({ numbers });
+      const stats = test_tools.sumArray({ numbers });
       
       return {
         original: numbers,
@@ -417,7 +414,7 @@ describe('CodeModeUtcpClient', () => {
     delete testResults.getCurrentTimeCalled;
     
     const code = `
-      const timeResult = await test_tools.getCurrentTime({});
+      const timeResult = test_tools.getCurrentTime({});
       return {
         timeData: timeResult,
         isRecent: timeResult.timestamp > Date.now() - 5000
@@ -436,7 +433,7 @@ describe('CodeModeUtcpClient', () => {
   test('should handle tool errors correctly', async () => {
     const code = `
       try {
-        await test_tools.throwError({ message: "Test error message" });
+        test_tools.throwError({ message: "Test error message" });
         return { error: false };
       } catch (error) {
         return { 
@@ -457,12 +454,14 @@ describe('CodeModeUtcpClient', () => {
     const code = `
       // Infinite loop to test timeout
       while (true) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // isolated-vm will timeout this
       }
       return { completed: true };
     `;
     
-    await expect(client.callToolChain(code, 1000)).rejects.toThrow();
+    const result = await client.callToolChain(code, 1000);
+    expect(result.result).toBeNull();
+    expect(result.logs.some((log: string) => log.includes('Code execution failed'))).toBe(true);
   });
 
   test('should handle code syntax errors', async () => {
@@ -471,7 +470,9 @@ describe('CodeModeUtcpClient', () => {
       return result;
     `;
     
-    await expect(client.callToolChain(invalidCode)).rejects.toThrow();
+    const result = await client.callToolChain(invalidCode);
+    expect(result.result).toBeNull();
+    expect(result.logs.some((log: string) => log.includes('Code execution failed'))).toBe(true);
   });
 
   test('should have access to basic JavaScript globals', async () => {
@@ -519,16 +520,16 @@ describe('CodeModeUtcpClient', () => {
     const code = `
       // Step 1: Get some numbers and process them
       const numbers = [5, 10, 15, 20];
-      const arrayStats = await test_tools.sumArray({ numbers });
+      const arrayStats = test_tools.sumArray({ numbers });
       
       // Step 2: Use the sum in another calculation
-      const addResult = await test_tools.add({ a: arrayStats.sum, b: 100 });
+      const addResult = test_tools.add({ a: arrayStats.sum, b: 100 });
       
       // Step 3: Create a greeting with the result
-      const greeting = await test_tools.greet({ name: "CodeMode", formal: false });
+      const greeting = test_tools.greet({ name: "CodeMode", formal: false });
       
       // Step 4: Process all the data together
-      const finalData = await test_tools.processData({
+      const finalData = test_tools.processData({
         data: {
           arrayStats,
           addResult,
@@ -599,7 +600,7 @@ describe('CodeModeUtcpClient', () => {
       console.log('Number:', 42);
       console.log('Object:', { name: 'test', value: 123 });
       
-      const addResult = await test_tools.add({ a: 10, b: 20 });
+      const addResult = test_tools.add({ a: 10, b: 20 });
       console.log('Addition result:', addResult);
       
       return addResult.result;
